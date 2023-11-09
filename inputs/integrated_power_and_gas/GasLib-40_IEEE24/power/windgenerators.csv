@@ -1,0 +1,6 @@
+Wind_num,EL_node,Pmax_MW,profile_type,wind_zone_old,wind_zone
+1,3,500,Wind_ON,1,4
+2,5,200,Wind_ON,3,7
+3,7,200,Wind_ON,9,5
+4,15,500,Wind_ON,13,10
+5,21,200,Wind_ON,NaN,NaN

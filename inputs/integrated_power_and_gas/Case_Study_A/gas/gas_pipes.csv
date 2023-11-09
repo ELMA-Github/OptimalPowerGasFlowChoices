@@ -1,0 +1,4 @@
+Pipe_No,From_Node,To_Node,friction,Diameter_m,Length_m
+1,1,2,0.01,0.5,75000
+2,3,2,0.01,0.5,50000
+3,2,4,0.01,0.5,25000

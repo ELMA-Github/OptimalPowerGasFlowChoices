@@ -1,0 +1,3 @@
+﻿Gen_num,EL_node,Pmin_MW,Pmax_MW,P_down_MW_h,P_up_MW_h,Type,NG_node,Conversion_kg_sMW,C1_per_MWh,C2_per_MWh2
+1,1,0,600,30,30,non-NGFPP,0,NaN,19,0.001
+2,2,0,900,60,60,NGFPP,4,0.05,NaN,NaN
