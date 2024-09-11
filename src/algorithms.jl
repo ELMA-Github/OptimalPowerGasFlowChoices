@@ -201,10 +201,20 @@ function add_taylor_series_expansion!(model, k, ES, m_k, π_avg_k, order)
     #     add_second_order_taylor_polynomial!(model, ES, m_k, π_avg_k)
     # end
 
-    if k > 2
-        modify_first_order_taylor_polynomial!(model, m_k, π_avg_k)
-    else
-        add_first_order_taylor_polynomial!(model, ES, m_k, π_avg_k)
+    if order == 1
+        if k > 2
+            modify_first_order_taylor_polynomial!(model, m_k, π_avg_k)
+        else
+            add_first_order_taylor_polynomial!(model, ES, m_k, π_avg_k)
+        end
+    elseif order == 2
+        if k > 2
+            delete.(model, model[:tsp_second_order_polynomial])
+            unregister.(model, :tsp_second_order_polynomial)
+            delete.(model, model[:taylor_series_expansion])
+            unregister.(model, :taylor_series_expansion)
+        end
+        add_second_order_taylor_polynomial!(model, ES, m_k, π_avg_k)
     end
     return nothing
 
@@ -266,7 +276,7 @@ function calculate_psd_part_of_matrix(H)
     """
     eig_vals, eig_vecs = eigen(H)
     eig_vals[eig_vals .< 0] .= 0
-    # eig_vals = round.(eig_vals, digits=6)
+    # # eig_vals = round.(eig_vals, digits=6)
     return eig_vecs * diagm(eig_vals) * eig_vecs'
 end
 
@@ -278,38 +288,34 @@ end
 
 
 function tsp_sop(m, m_k, π_avg, π_avg_k)
-    return 1/2 * [m - m_k, π_avg - π_avg_k]' * 
+    return [m, π_avg]' * 
         calculate_psd_hessian(m_k, π_avg_k) * 
-        [m - m_k, π_avg - π_avg_k]
+        [m, π_avg]
 end
 
 
 function tsp_fop(m, m_k, π_avg, π_avg_k)
-    return (abs(m_k) * m_k)/π_avg_k +
-        2*abs(m_k)/π_avg_k * (m - m_k) -
-        m_k*abs(m_k)/π_avg_k^2 * (π_avg - π_avg_k)
+    return coeff_m(m_k, π_avg_k) * m +
+        coeff_π_avg(m_k, π_avg_k) * π_avg
 end
 
 
-
-function add_second_order_taylor_polynomial!(m, ES, m_k, π_avg_k)
+function add_second_order_taylor_polynomial!(model, ES, m_k, π_avg_k)
     """
     Add description.
     """
     # Add Taylor-series expansion for current iteration
 
     m, π_avg, γ, τ = model[:m], model[:π_avg], model[:γ], model[:τ]
-    @constraint(m, taylor_series_expansion[p in ES.P, t in ES.T], γ[p,t] ==
-        # map_coefficients_inplace!(a -> a <= 1e-10 ? 0 : a,
-        tsp_fop(m[p,t], m_k[p,t], π_avg[p,t], π_avg_k[p,t]) + τ[p,t])
-    @constraint(m, tsp_second_order_polynomial[p in ES.P, t in ES.T],
-        # map_coefficients_inplace!(a -> a <= 1e-10 ? 0 : a,
-        tsp_sop(m[p,t], m_k[p,t], π_avg[p,t], π_avg_k[p,t]) <= τ[p,t])
-    # @constraint(m, tsp_second_order_polynomial[p in ES.P, t in ES.T],
-    #     1/2 * [m[:m][p,t] - m_k[p,t], m[:π_avg][p,t] - π_avg_k[p,t]]' * 
-    #     calculate_psd_hessian(m_k[p,t], π_avg_k[p,t]) * 
-    #     [m[:m][p,t] - m_k[p,t], m[:π_avg][p,t] - π_avg_k[p,t]] <= m[:τ][p,t]
-    # ) 
+    @constraint(model, taylor_series_expansion[p in ES.P, t in ES.T], γ[p,t] ==
+        - coeff_m(m_k[p,t], π_avg_k[p,t]) * m[p,t] - coeff_π_avg(m_k[p,t], π_avg_k[p,t]) * π_avg[p,t] +
+        + 1/2 * τ[p,t]
+    )
+
+    @constraint(model, tsp_second_order_polynomial[p in ES.P, t in ES.T],
+        # map_coefficients_inplace!(a -> a <= 1e-4 ? 0 : a,
+            tsp_sop(m[p,t], m_k[p,t], π_avg[p,t], π_avg_k[p,t]) <= τ[p,t]
+            )
 
     return 
 end
