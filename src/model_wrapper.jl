@@ -138,6 +138,8 @@ function set_solver(
     if attribute_dict[:solver_name] == "Ipopt"
         set_optimizer(model, Ipopt.Optimizer)
         set_optimizer_attribute(model, "max_iter", 10000)
+        set_optimizer_attribute(model, "hsllib", HSL_jll.libhsl_path)
+        set_optimizer_attribute(model, "linear_solver", "ma86")
         
     elseif attribute_dict[:solver_name] == "Gurobi"
         set_optimizer(model, Gurobi.Optimizer)

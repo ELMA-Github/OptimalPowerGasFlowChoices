@@ -3,6 +3,8 @@ using Pkg
 Pkg.activate("")
 
 using JuMP, Ipopt, Gurobi, CSV, DataFrames, LinearAlgebra, Dates, XLSX, Statistics
+import HSL_jll
+using HSL
 #using Plots
 include("components.jl")
 include("bases_choice.jl")
