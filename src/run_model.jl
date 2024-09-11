@@ -139,63 +139,91 @@ model_list = ["NCNLP", "SCP", "CELP", "MISOCP", "MILP"]
 LO = [true,false]
 PDE_types = [3]
 dt_list = [900]#, 300]#[3600, 900]#, 900]
-results = Dict{String, EnergySystem}()
-for dt in dt_list
+run_dict = Dict()
+no_runs = 10
+for run in 1:no_runs
+    results = Dict{String, EnergySystem}()
+    for dt in dt_list
 
-    for PDE_type in PDE_types
+        for PDE_type in PDE_types
 
-        config_dict[:dt] = dt
-        if dt in [300,900]
-            config_dict[:space_disc] = 0
-            config_dict[:segment] = 50000
-        else
-            config_dict[:space_disc] = 0
-        end
-        config_dict[:system] = "integrated_power_and_gas" 
-
-
-        ES = intialize_energy_system(config_dict)
-        intialize_data!(ES);
-        ES.boundary_conditions = Dict(
-            :m => boundary_conditions[:m]/ES.bases_dict[:M_base],
-            :π_avg => boundary_conditions[:π_avg]/ES.bases_dict[:Π_base],
-        )
-
-        for model in model_list
-
-            ES.model_type = model
-            config_dict[:system] = "integrated_power_and_gas"
-
-            if (model == "MISOCP") # && (dt == 900)
-                ES.warmstart = Dict{Symbol,Any}(:method => "MILP")
-            elseif model == "SCP"
-                ES.warmstart = Dict{Symbol,Any}(:method => "CELP")
+            config_dict[:dt] = dt
+            if dt in [300,900]
+                config_dict[:space_disc] = 0
+                config_dict[:segment] = 15000
             else
-                ES.warmstart = Dict{Symbol,Any}()
+                config_dict[:space_disc] = 0
             end
+            config_dict[:system] = "integrated_power_and_gas" 
 
-                    config_dict_algorithm[:augmentation_method] = "L2" # Augmentation method
 
-            if model in ["SCP", "NCNLP", "MINLP", "MISOCP","MISOCP_McCormick", "MISOCP_sbnb", "CELP", "PWL"]
-                ########## Parameters for PDE-based models ##########
-                config_dict_algorithm[:PDE_type] = PDE_type
-            end
+            ES = intialize_energy_system(config_dict)
+            intialize_data!(ES);
+            ES.boundary_conditions = Dict(
+                :m => boundary_conditions[:m]/ES.bases_dict[:M_base],
+                :π_avg => boundary_conditions[:π_avg]/ES.bases_dict[:Π_base],
+            )
 
-            if model in ["MISOCP", "MILP"]
-                for lo in LO
-                    config_dict_algorithm[:linear_overestimator] = lo
-                    run_model!(ES, config_dict_algorithm)
-                    lo_string = lo == false ? "_"*string(false) : ""
-                    results[model*lo_string*"_"*string(PDE_type)*"_"*string(dt)] = deepcopy(ES)
+            for model in model_list
+
+                ES.model_type = model
+                config_dict[:system] = "integrated_power_and_gas"
+
+                if (model == "MISOCP") # && (dt == 900)
+                    ES.warmstart = Dict{Symbol,Any}(:method => "MILP")
+                elseif model == "SCP"
+                    ES.warmstart = Dict{Symbol,Any}(:method => "CELP")
+                else
+                    ES.warmstart = Dict{Symbol,Any}()
                 end
-            else
-                run_model!(ES, config_dict_algorithm)
-                results[model*"_"*string(PDE_type)*"_"*string(dt)] = deepcopy(ES)
-            end
 
-        end
+                config_dict_algorithm = Dict{Symbol,Any}()
+                ########## Select additional model parameters for various model formulations
+                if model == "PWL"
+                    ########## Parameters PWL ##########
+                    # Number of set points for mass flow and average pressure {Int}
+                    config_dict_algorithm[:no_m_set] = 3 # >= 3
+                    config_dict_algorithm[:no_π_set] = 3 # >= 3
+                    config_dict_algorithm[:method] = "ldcc" # One of ["ldcc"]
+                elseif model == "SCP"
+                    ########## Parameters SCP ##########
+                    config_dict_algorithm[:order] = 1 # Taylor-series expansion order, one of {1,2}
+                    config_dict_algorithm[:k_max] = 100 # Maximum number of iterations
+                    config_dict_algorithm[:augmentation_method] = "L2" # Augmentation method
+                    config_dict_algorithm[:δ_init] = 10e-3
+                    config_dict_algorithm[:δ_update] = 2
+                    config_dict_algorithm[:δ_max] = 10e3
+                    config_dict_algorithm[:ϕ_max] = 10e-12
+                end
+
+                if model in ["SCP", "NCNLP", "MINLP", "MISOCP","MISOCP_McCormick", "MISOCP_sbnb", "CELP", "PWL"]
+                    ########## Parameters for PDE-based models ##########
+                    config_dict_algorithm[:PDE_type] = PDE_type
+                end
+
+                if model in ["MISOCP", "MILP"]
+                    for lo in LO
+                        config_dict_algorithm[:linear_overestimator] = lo
+                        run_model!(ES, config_dict_algorithm)
+                        lo_string = lo == false ? "_"*string(false) : ""
+                        results[model*lo_string*"_"*string(PDE_type)*"_"*string(dt)] = deepcopy(ES)
+                    end
+                else
+                    run_model!(ES, config_dict_algorithm)
+                    results[model*"_"*string(PDE_type)*"_"*string(dt)] = deepcopy(ES)
+                end
+            end
+        end 
     end
+    run_dict[run] = results
 end
 
+model_list_results = collect(keys(run_dict[1]))
+for model in model_list_results
+    run_times = round.([run_dict[run][model].solve_time for run in 1:no_runs], digits=2)
+    mean_run_time = mean(run_times)
+    @info "Model $model mean solve time of $no_runs runs: $mean_run_time."
+    @info "$run_times"
+end
 
 # # save_results_to_excel(ES, config_dict)
