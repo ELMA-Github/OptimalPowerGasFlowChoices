@@ -6,6 +6,7 @@ function SCP(
     config_dict_solver::Dict{Symbol,<:Any}=Dict{Symbol,Any}();
     order::Int64=1,
     k_max::Int64=100, 
+    augmentation_method::String, # augmentation norm
     δ_init::Real=10^-2, # Penalty factor augmentation
     δ_update::Real=2, # Update factor for penalty
     δ_max::Real=10^5, # Maximum penalty parameter
@@ -78,9 +79,25 @@ function SCP(
             # Add augmentation terms for iteration k
             # set_objective_function(model, 
             #     obj_func + sum(objective_augmentation.(δ[k], π_avg, π_avg_k, m, m_k)))
-            set_objective_function(model, obj_func + #map_coefficients_inplace!(a -> round(a, digits=8),
-                sum(δ[k][p,t]*((π_avg[p,t] - π_avg_k[p,t])^2 + (m[p,t] - m_k[p,t])^2)
-                    for p in ES.P, t in ES.T))
+
+            if augmentation_method == "L2"
+                set_objective_function(model, obj_func + #map_coefficients_inplace!(a -> round(a, digits=8),
+                    sum(δ[k][p,t]*((π_avg[p,t] - π_avg_k[p,t])^2 + (m[p,t] - m_k[p,t])^2)
+                        for p in ES.P, t in ES.T))
+            elseif augmentation_method == "L1"
+                if k == 2
+                    @variable(model, κ_m[p in ES.P, t in ES.T])
+                    @variable(model, κ_π[p in ES.P, t in ES.T])
+                    set_objective_function(model, obj_func + sum(δ[k][p,t]*(κ_m[p,t] + κ_π[p,t]) for p in ES.P, t in ES.T))
+
+                    add_L1_norm_constraint(model, ES, δ[k], m_k, π_avg_k)
+                else
+                    change_L1_norm_constraint_rhs(model, ES, m_k, π_avg_k)
+                end
+            else throw(ArgumentError("""Passed augmentation method is $(augmentation_method).
+                Must be one of 'L1', 'L2'."""))
+            end
+
         end
         # Solve model and extract required optimial values
         solve_model!(model)
@@ -134,6 +151,38 @@ function SCP(
     stop = Dates.now()
     ES.solve_time = ((stop-start)/Millisecond(1000))
     @info "Solution time: $(ES.solve_time) seconds."
+
+    return nothing
+end
+
+
+function delete_and_unregister!(model, cons_names)
+    for con_name in cons_names
+        delete.(model, model[con_name])
+        unregister.(model, con_name)
+    end
+    return nothing
+end
+
+
+function add_L1_norm_constraint(model, ES, δ, m_k, π_avg_k)
+    m, π_avg, κ_m, κ_π = model[:m], model[:π_avg], model[:κ_m], model[:κ_π]
+
+    @constraint(model, L1_m_pos[p in ES.P, t in ES.T], -κ_m[p,t] + m[p,t] <= m_k[p,t])
+    @constraint(model, L1_m_neg[p in ES.P, t in ES.T], κ_m[p,t] + m[p,t] >= m_k[p,t])
+
+    @constraint(model, L1_π_pos[p in ES.P, t in ES.T], -κ_π[p,t] + π_avg[p,t] <= π_avg_k[p,t])
+    @constraint(model, L1_π_neg[p in ES.P, t in ES.T], κ_π[p,t] + π_avg[p,t] >= π_avg_k[p,t])
+
+    return nothing
+end
+
+function change_L1_norm_constraint_rhs(model, ES, m_k, π_avg_k)
+
+    set_normalized_rhs.(model[:L1_m_pos], m_k)
+    set_normalized_rhs.(model[:L1_m_neg], m_k)
+    set_normalized_rhs.(model[:L1_π_pos], π_avg_k)
+    set_normalized_rhs.(model[:L1_π_pos], π_avg_k)
 
     return nothing
 end

@@ -72,6 +72,7 @@ elseif config_dict[:model_type] == "SCP"
     ########## Parameters SCP ##########
     config_dict_algorithm[:order] = 1 # Taylor-series expansion order, one of {1,2}
     config_dict_algorithm[:k_max] = 100 # Maximum number of iterations
+    config_dict_algorithm[:augmentation_method] = "L2" # Augmentation method
     config_dict_algorithm[:δ_init] = 10e-3
     config_dict_algorithm[:δ_update] = 2
     config_dict_algorithm[:δ_max] = 10e3
@@ -171,23 +172,7 @@ for dt in dt_list
                 ES.warmstart = Dict{Symbol,Any}()
             end
 
-            config_dict_algorithm = Dict{Symbol,Any}()
-            ########## Select additional model parameters for various model formulations
-            if model == "PWL"
-                ########## Parameters PWL ##########
-                # Number of set points for mass flow and average pressure {Int}
-                config_dict_algorithm[:no_m_set] = 3 # >= 3
-                config_dict_algorithm[:no_π_set] = 3 # >= 3
-                config_dict_algorithm[:method] = "ldcc" # One of ["ldcc"]
-            elseif model == "SCP"
-                ########## Parameters SCP ##########
-                config_dict_algorithm[:order] = 1 # Taylor-series expansion order, one of {1,2}
-                config_dict_algorithm[:k_max] = 100 # Maximum number of iterations
-                config_dict_algorithm[:δ_init] = 10e-3
-                config_dict_algorithm[:δ_update] = 2
-                config_dict_algorithm[:δ_max] = 10e3
-                config_dict_algorithm[:ϕ_max] = 10e-12
-            end
+                    config_dict_algorithm[:augmentation_method] = "L2" # Augmentation method
 
             if model in ["SCP", "NCNLP", "MINLP", "MISOCP","MISOCP_McCormick", "MISOCP_sbnb", "CELP", "PWL"]
                 ########## Parameters for PDE-based models ##########
