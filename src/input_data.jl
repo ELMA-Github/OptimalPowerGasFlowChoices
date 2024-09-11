@@ -22,7 +22,7 @@ function create_base_gas(path_input_data::String, pu::Bool=true, dt::Number=3600
 
     # c = model_type in ["boundary_conditions", "NCNLP"] ? -1 : 0
     c = 1
-    D_base, T_base = find_optimal_bases(0.5, dt, segment, c)
+    # D_base, T_base = find_optimal_bases(0.5, dt, segment, c)
     # pipe_df = CSV.read(joinpath(path_input_data, "gas_pipes.csv"), DataFrame, delim=",")
     @info "D_base: $D_base, T_base: $T_base"
     @info "Calculating residual bases."
