@@ -76,7 +76,7 @@ elseif config_dict[:model_type] == "SCP"
     config_dict_algorithm[:δ_init] = 10e-3
     config_dict_algorithm[:δ_update] = 2
     config_dict_algorithm[:δ_max] = 10e3
-    config_dict_algorithm[:ϕ_max] = 10e-9
+    config_dict_algorithm[:ϕ_max] = 10e-12
 elseif config_dict[:model_type] == "MISOCP_sbnb"
     config_dict_algorithm[:cut_slack] = 0
     config_dict_algorithm[:max_relaxation_gap] = 0.1

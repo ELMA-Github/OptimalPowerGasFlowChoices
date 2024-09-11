@@ -29,6 +29,7 @@ function SCP(
     # δ_init, δ_max = M_base/Cost_base * [δ_init, δ_max]
 
     ϕ_max = ϕ_max/Γ_base
+    @info "ϕ_max: $ϕ_max"
     
     
     no_P, no_T = length(ES.P), length(ES.T)
